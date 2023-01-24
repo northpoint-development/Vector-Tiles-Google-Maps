@@ -1,6 +1,7 @@
 module.exports = {
   root: true,
   env: {
+    'jest': true,
     'browser': true,
     'node': true,
   },
@@ -12,6 +13,7 @@ module.exports = {
   ],
   parserOptions: {
     'ecmaVersion': 2022,
+    'sourceType': 'module',
   },
   plugins: ['jest'],
   rules: {
