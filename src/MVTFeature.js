@@ -2,7 +2,7 @@
  *  Created by Jes�s Barrio on 04/2021
  */
 
-class MVTFeature {
+export class MVTFeature {
   constructor(options) {
     this.mVTSource = options.mVTSource;
     this.selected = options.selected;
