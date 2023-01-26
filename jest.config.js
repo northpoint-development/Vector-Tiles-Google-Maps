@@ -5,4 +5,7 @@ export default {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^\\$/(.*)$': '<rootDir>/tests/$1',
   },
+  setupFiles: [
+    '<rootDir>/tests/setup.js',
+  ],
 };
