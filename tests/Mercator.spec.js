@@ -1,4 +1,4 @@
-import {initialize, LatLng} from '@googlemaps/jest-mocks';
+import {initialize} from '@googlemaps/jest-mocks';
 import {
   fromLatLngToPixels,
   fromLatLngToPoint,

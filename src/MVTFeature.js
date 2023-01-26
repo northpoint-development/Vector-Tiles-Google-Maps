@@ -185,7 +185,7 @@ export class MVTFeature {
       y: coords.y / divisor,
     };
 
-    if (tileContext.parentId) {
+    if (tileContext.parentId) { // TODO likely a bug: needs to check for nullish value, not falsy
       point = this._getOverzoomedPoint(point, tileContext);
     }
     return point;
