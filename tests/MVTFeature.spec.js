@@ -1,4 +1,7 @@
 import {MVTFeature} from '@/MVTFeature.js';
+import {mockMVTSource, mockVectorTileFeatures, mockCanvas, mockContext} from './common-mocks';
+
+const mockVectorTileFeature = mockVectorTileFeatures[0];
 
 // This mocks Path2D of the Canvas API.
 const mockAddPath = jest.fn();
@@ -13,71 +16,6 @@ class Path2D {
 }
 global.Path2D = Path2D;
 
-const mockMap = () => ({
-  getBounds: () => ({
-    getNorthEast: () => ({lat: -15, lng: 30}),
-    getSouthWest: () => ({lat: 45, lng: -60}),
-  }),
-  getProjection: () => ({
-    // Like the actual API function, this must work for both LatLng and LatLngLiteral arguments.
-    fromLatLngToPoint: ({lat, lng}) => {
-      if (lat instanceof Function) {
-        return {x: lat(), y: lng()};
-      } else {
-        return {x: lat, y: lng};
-      }
-    },
-  }),
-  getZoom: () => 13,
-});
-
-const mockMVTSource = {
-  featureSelected: jest.fn(),
-  featureDeselected: jest.fn(),
-  deleteTileDrawn: jest.fn(),
-  getTileObject: jest.fn((id) => [
-    {zoom: 3},
-    {zoom: 5, x: 1, y: 3},
-    {zoom: 7, x: 5, y: 10},
-    {zoom: 13},
-    {zoom: 15},
-    {zoom: 13},
-    {zoom: 7},
-  ][id]),
-  redrawTile: jest.fn(),
-  map: mockMap(),
-};
-const mockDrawFn = jest.fn();
-const mockVectorTileFeature = {
-  extent: 64,
-  type: 1,
-  properties: 'mock vector tile props',
-  // I don't fully understand what the shape of `coordinates` is supposed to be,
-  // but this satisfies the functions that use it.
-  coordinates: [
-    [
-      {x: 1, y: 2}, {x: 2, y: 1},
-    ],
-    [
-      {x: -2, y: 3}, {x: 0, y: 3}, {x: 3, y: 3},
-    ],
-  ],
-};
-const mockBeginPath = jest.fn();
-const mockClosePath = jest.fn();
-const mockArc = jest.fn();
-const mockFill = jest.fn();
-const mockStroke = jest.fn();
-const mockContext = () => ({
-  beginPath: mockBeginPath,
-  closePath: mockClosePath,
-  arc: mockArc,
-  fill: mockFill,
-  stroke: mockStroke,
-});
-const mockCanvas = {
-  getContext: jest.fn(() => mockContext()),
-};
 const mockTile = {
   divisor: 16,
   vectorTileFeature: mockVectorTileFeature,
@@ -96,6 +34,9 @@ const mockStyle = {
   fillStyle: true,
   strokeStyle: true,
 };
+
+const mockDrawFn = jest.fn();
+
 const mockOptions = () => ({
   mVTSource: mockMVTSource,
   selected: true,
@@ -294,17 +235,17 @@ describe('MVTFeature', () => {
           .drawPoint(mockTileContext, mockTile, mockStyle);
 
       expect(mockCanvas.getContext).toHaveBeenCalledWith('2d');
-      expect(mockBeginPath).toHaveBeenCalled();
-      expect(mockClosePath).toHaveBeenCalled();
-      expect(mockFill).toHaveBeenCalled();
-      expect(mockStroke).toHaveBeenCalled();
-      expect(mockArc).toHaveBeenCalledWith(0.0625, 0.125, mockStyle.radius, 0, Math.PI * 2);
+      expect(mockContext().beginPath).toHaveBeenCalled();
+      expect(mockContext().closePath).toHaveBeenCalled();
+      expect(mockContext().fill).toHaveBeenCalled();
+      expect(mockContext().stroke).toHaveBeenCalled();
+      expect(mockContext().arc).toHaveBeenCalledWith(0.0625, 0.125, mockStyle.radius, 0, Math.PI * 2);
     });
     it('calls the 2D canvas context with a radius of 3 by default', () => {
       new MVTFeature(mockOptions())
           .drawPoint(mockTileContext, mockTile, {...mockStyle, radius: undefined});
 
-      expect(mockArc).toHaveBeenCalledWith(
+      expect(mockContext().arc).toHaveBeenCalledWith(
           expect.anything(), expect.anything(), 3, expect.anything(), expect.anything(),
       );
     });
@@ -323,7 +264,7 @@ describe('MVTFeature', () => {
     });
     it('calls the 2D canvas context functions as expected', () => {
       expect(mockCanvas.getContext).toHaveBeenCalledWith('2d');
-      expect(mockStroke).toHaveBeenCalledWith(mockTile.paths2d);
+      expect(mockContext().stroke).toHaveBeenCalledWith(mockTile.paths2d);
     });
   });
   describe('drawPolygon', () => {

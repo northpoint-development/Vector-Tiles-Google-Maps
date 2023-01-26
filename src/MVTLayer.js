@@ -2,7 +2,9 @@
  *  Created by Jes�s Barrio on 04/2021
  */
 
-class MVTLayer {
+import {MVTFeature} from '@/MVTFeature.js';
+
+export class MVTLayer {
   constructor(options) {
     this._lineClickTolerance = 2;
     this._getIDForLayerFeature = options.getIDForLayerFeature;
@@ -34,6 +36,7 @@ class MVTLayer {
     }
 
     const style = this.getStyle(vectorTileFeature);
+    // TODO likely bug: should probably be checking for nullish, not falsy.
     const featureId = this._getIDForLayerFeature(vectorTileFeature) || i;
     let mVTFeature = this._mVTFeatures[featureId];
     if (!mVTFeature) {
