@@ -2,7 +2,7 @@
  *  Created by Jes�s Barrio on 04/2021
  */
 
-class MVTSource {
+export class MVTSource {
   constructor(map, options) {
     const self = this;
     this.map = map;
