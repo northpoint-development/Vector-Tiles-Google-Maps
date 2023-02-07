@@ -1,3 +1,4 @@
+const Pbf = require('pbf');
 /*
  *  Created by Jes�s Barrio on 04/2021
  */
