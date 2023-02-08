@@ -3,6 +3,7 @@
  */
 import Pbf from 'pbf';
 import {VectorTile} from '@mapbox/vector-tile';
+import * as MERCATOR from '../lib/mercator/Mercator.js';
 import MVTLayer from './MVTLayer.js';
 export class MVTSource {
   constructor(map, options) {
