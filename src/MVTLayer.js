@@ -3,7 +3,7 @@
  */
 import {MVTFeature} from './MVTFeature.js';
 
-export default class MVTLayer {
+export class MVTLayer {
   constructor(options) {
     this._lineClickTolerance = 2;
     this._getIDForLayerFeature = options.getIDForLayerFeature;
