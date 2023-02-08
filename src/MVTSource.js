@@ -1,8 +1,9 @@
-const Pbf = require('pbf');
 /*
  *  Created by Jes�s Barrio on 04/2021
  */
-
+import Pbf from 'pbf';
+import VectorTile from '../lib/vectortiles/VectorTile.js';
+import MVTLayer from './MVTLayer.js';
 export class MVTSource {
   constructor(map, options) {
     const self = this;
