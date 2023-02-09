@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hover</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <div class="container-left">
+        <div id="map"></div>
+    </div>
+    <div class="container-right">
+        <div>
+            <h2>Hover</h2>
+            <p>
+                Hover to select single feature.
+            </p>
+            <p>
+                Inhabitants:
+                <div id="selectedFeature"></div>
+            </p>
+        </div>
+    </div>
+   <script type="module"  src="../main.js"></script>
+    <script type="text/javascript">
+        var map;
+        var mvtSource;
+
+        function InitGoogleMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 40.4689896, lng: -3.58839404 },
+                zoom: 7
+            });
+            // if tiles have not been loaded, GetTile will trigger twice.
+            google.maps.event.addListenerOnce(map, 'tilesloaded', function () {
+                InitVectorTiles();
+            });
+        }
+
+        function InitVectorTiles() {
+            var options = {
+                url: "https://api.mapbox.com/v4/techjb.bwtby589/{z}/{x}/{y}.vector.pbf?sku=101D1qzcYDQhj&access_token=pk.eyJ1IjoidGVjaGpiIiwiYSI6ImNrbzFuMDV6MzBhYXQycWxwaG4ydGozZTgifQ.hCgIvpwnfw93KFcWaR5WBA",
+                sourceMaxZoom: 14,
+                clickableLayers: ["municipalities"], // Trigger click event to some layers
+                visibleLayers: ["municipalities"],
+                getIDForLayerFeature: function (feature) {  // Unique identifier for each feature
+                    return feature.properties.Id;
+                }
+            }
+
+            mvtSource = new MVTSource(map, options);
+            map.overlayMapTypes.insertAt(0, mvtSource);
+
+            var options = {
+                setSelected: false, // set feature as selected
+                delay: 0
+            }
+
+            map.addListener("mousemove", function (event) {
+                mvtSource.onMouseHover(event, ShowFeature, options);
+            });
+
+        }
+
+        function ShowFeature(event) {
+            var selectedFeature = document.getElementById("selectedFeature");
+            var text = '';
+            if (event.feature) {
+                text = (event.feature.properties.Name + ": " + event.feature.properties.Value);
+            }
+            selectedFeature.innerHTML = text;
+        }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCTayMAzOhyROj9VuFlt9Jm7RpSGPFwwYE&callback=InitGoogleMap&libraries=&v=weekly"
+            defer></script>
+</body>
+</html>
