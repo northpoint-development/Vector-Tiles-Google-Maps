@@ -22,5 +22,23 @@
     <li><a href="./examples/styles-feature.html">Styles feature</a> - Style based on feature properties.</li>
     <li><a href="./examples/styles.html">Styles</a> - Change style dynamically.</li>
   </ol>
+  <h2>Set API Key</h2>
+  <p>You must use a valid Google Maps API key. If you do not have one, you can get one <a href="https://developers.google.com/maps/documentation/javascript/get-api-key">here.</a></p>
+  <div>
+    <label for="apiKey">API Key: </label>
+    <input type="text" id="apiKey" name="input" />
+    <button id="setApiKey" onclick="storeAPIKey()">Set API Key</button>
+</div>
+<script>
+  function storeAPIKey() {
+    var apiKey = document.getElementById("apiKey").value;
+    localStorage.setItem("apiKey", apiKey);
+  }
+  // load the API key from local storage if it exists
+  var apiKey = localStorage.getItem("apiKey");
+  if (apiKey) {
+    document.getElementById("apiKey").value = apiKey;
+  }
+</script>
 </body>
 </html>
