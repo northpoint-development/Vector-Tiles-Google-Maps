@@ -14,6 +14,8 @@ import {MVTLayer} from './MVTLayer.js';
  * @typedef {import('@mapbox/vector-tile').VectorTileLayer} VectorTileLayer
  * @typedef {import('@mapbox/vector-tile').VectorTileFeature} VectorTileFeature
  * @typedef {import('./MVTFeature').FeatureTile} FeatureTile
+ * @typedef {import('./MVTFeature').MVTFeature} MVTFeature
+ * @typedef {import('./MVTLayer').TileMapMouseEvent} TileMapMouseEvent
  */
 
 /**
@@ -73,9 +75,36 @@ import {MVTLayer} from './MVTLayer.js';
  */
 
 /**
+ * @typedef {Object} ClickHandlerOptions
+ * @property {boolean} [limitToFirstVisibleLayer=false] Trigger events only to the first visible layer
+ * @property {boolean} [multipleSelection=false] Multiple feature selection
+ * @property {boolean} [setSelected=false] Set feature selected style
+ * @property {boolean} [toggleSelection=true] Toggle feature selected style
+ * @property {number} [delay=0] If new event is triggered before delay, old event will be ignored. Used to avoid
+ * overload on mousemove event
+ */
+
+/**
+ * Returns a fully populated ClickHandlerOptions object, merging the default values with the provided options
+ * @param {ClickHandlerOptions} [options]
+ * @return {ClickHandlerOptions}
+ * @private
+ */
+const getMouseOptions = (options={}) => {
+  return {
+    setSelected: options.setSelected || false,
+    toggleSelection: (options.toggleSelection === undefined || options.toggleSelection),
+    limitToFirstVisibleLayer: options.limitToFirstVisibleLayer || false,
+    delay: options.delay || 0,
+    multipleSelection: options.multipleSelection || false,
+  };
+};
+
+/**
  * Returns the default styling function
  * @param {VectorTileFeature} feature
  * @return {StyleOptions}
+ * @private
  */
 const defaultStyleFn = function(feature) {
   return {
@@ -111,6 +140,7 @@ const defaultStyleFn = function(feature) {
 /**
  * @param {VectorTileFeature} feature
  * @return {string|number}
+ * @private
  */
 const defaultFeatureIdFn = function(feature) {
   return feature?.properties?.id || feature?.properties?.Id || feature?.properties?.ID;
@@ -146,6 +176,7 @@ const getTileFromString = (id) => {
  * @param {string} tileId
  * @param {number} maxZoom
  * @return {string} Parent tile id
+ * @private
  */
 const getParentId = (tileId, maxZoom) => {
   if (!maxZoom) return '';
@@ -163,6 +194,7 @@ const getParentId = (tileId, maxZoom) => {
  * @param {string} tileId
  * @param {number} tileSize
  * @return {HTMLCanvasElement}
+ * @private
  */
 const createCanvas = (ownerDocument, tileId, tileSize) => {
   const canvas = ownerDocument.createElement('canvas');
@@ -202,38 +234,36 @@ class MVTSource {
     this._filter = options.filter || false; // Filter features
     /** @type {Record<string, string>} Additional headers to add when requesting tiles from the server */
     this._xhrHeaders = options.xhrHeaders || {}; // Headers added to every url request
-    /** @type {Record<string, TileContext>} List of tiles drawn. Only populated when cache enabled */
-    this._tilesDrawn = {};
     /** @type {drawFn} */
     this._customDraw = options.customDraw || null;
     /** @type {boolean} Allow multiple selection */
-    this._multipleSelection;
+    this._multipleSelection = options.multipleSelection || false;
 
-
-    this._visibleTiles = []; // tiles currently in the viewport
-    this._selectedFeatures = []; // list of selected features
-
+    /** @type {Record<string, TileContext>} List of tiles drawn. Only populated when cache enabled */
+    this._tilesDrawn = {};
+    /** @type {Record<string, TileContext>} List of tiles currently in the viewport */
+    this._visibleTiles = {}; // tiles currently in the viewport. Reset on zoom_changed, populated on getTile
+    /** @type {Record<string, MVTFeature>} List of selected features */
+    this._selectedFeatures = {}; // list of selected features
 
     // Public properties
     /** @type {google.maps.Map} */
     this.map = map;
-
     /** @type {featureIdFn} Function to get id for layer feature */
     this.getIDForLayerFeature = options.getIDForLayerFeature || defaultFeatureIdFn;
     /** @type {google.maps.Size} */
     this.tileSize = new window.google.maps.Size(this._tileSize, this._tileSize);
     /** @type {styleFn|StyleOptions} */
     this.style = options.style || defaultStyleFn;
-
-    if (options.selectedFeatures) {
-      this.setSelectedFeatures(options.selectedFeatures);
-    }
     /** @type {Record<string, MVTLayer>} Keep a list of the layers contained in the PBFs */
     this.mVTLayers = {};
 
     // Init
+    if (options.selectedFeatures) {
+      this.setSelectedFeatures(options.selectedFeatures);
+    }
     this.map.addListener('zoom_changed', () => {
-      this._visibleTiles = [];
+      this._visibleTiles = {};
       if (!this._cache) {
         this.mVTLayers = {};
       }
@@ -389,69 +419,86 @@ class MVTSource {
     }
   }
 
+  /**
+   * Wrap a mouse click event with a callback function
+   * @param {google.maps.MapMouseEvent} event
+   * @param {(event: TileMapMouseEvent)} callbackFunction
+   * @param {ClickHandlerOptions} options
+   */
   onClick(event, callbackFunction, options) {
     this._multipleSelection = (options && options.multipleSelection) || false;
-    options = this._getMouseOptions(options, false);
+    options = getMouseOptions(options);
+    options.mouseHover = false;
     this._mouseEvent(event, callbackFunction, options);
   }
 
+  /**
+   * Wrap a mouse hover event with a callback function
+   * @param {google.maps.MapMouseEvent} event
+   * @param {(event: TileMapMouseEvent)} callbackFunction
+   * @param {ClickHandlerOptions} options
+   */
   onMouseHover(event, callbackFunction, options) {
     this._multipleSelection = false;
-    options = this._getMouseOptions(options, true);
+    options = getMouseOptions(options);
+    options.mouseHover = true;
     this._mouseEvent(event, callbackFunction, options);
   }
 
-  _getMouseOptions(options, mouseHover) {
-    return {
-      mouseHover: mouseHover,
-      setSelected: options.setSelected || false,
-      toggleSelection: (options.toggleSelection === undefined || options.toggleSelection),
-      limitToFirstVisibleLayer: options.limitToFirstVisibleLayer || false,
-      delay: options.delay || 0,
-    };
-  }
-
+  /**
+   * @param {google.maps.MapMouseEvent} event
+   * @param {(event: TileMapMouseEvent)} callbackFunction
+   * @param {ClickHandlerOptions} options
+   */
   _mouseEvent(event, callbackFunction, options) {
-    if (!event.pixel || !event.latLng) return;
-
-    if (options.delay == 0) {
-      return this._mouseEventContinue(event, callbackFunction, options);
-    }
-
-    this.event = event;
-    const me = this;
-    setTimeout(function() {
-      if (event != me.event) return;
-      me._mouseEventContinue(me.event, callbackFunction, options);
-    }, options.delay, event);
-  }
-  _mouseEventContinue(event, callbackFunction, options) {
-    callbackFunction = callbackFunction || function() { };
-    const limitToFirstVisibleLayer = options.limitToFirstVisibleLayer || false;
-    const zoom = this.map.getZoom();
-    const tile = MERCATOR.getTileAtLatLng(event.latLng, zoom);
-    const id = getTileString(tile.z, tile.x, tile.y);
-    const tileContext = this._visibleTiles[id];
-    if (!tileContext) {
+    // If the received event does not have a latLng, it is not a valid event
+    if (!event.latLng) {
+      console.warn('Invalid event received. Expected latLng to be defined.', event);
       return;
     }
-    event.tileContext = tileContext;
-    event.tilePoint = MERCATOR.fromLatLngToTilePoint(this.map, event);
 
-    const clickableLayers = this._clickableLayers || Object.keys(this.mVTLayers) || [];
-    for (let i = clickableLayers.length - 1; i >= 0; i--) {
-      const key = clickableLayers[i];
-      const layer = this.mVTLayers[key];
-      if (layer) {
-        var event = layer.handleClickEvent(event, this);
-        this._mouseSelectedFeature(event, callbackFunction, options);
-        if (limitToFirstVisibleLayer && event.feature) {
-          break;
-        }
-      }
+    if (options.delay == 0) {
+      this._mouseEventContinue(event, callbackFunction, options);
+      return;
+    }
+
+    setTimeout(() => this._mouseEventContinue(event, callbackFunction, options), options.delay);
+  }
+
+  /**
+   * @param {google.maps.MapMouseEvent} event
+   * @param {(event: TileMapMouseEvent)} [callbackFunction=()=>{}]
+   * @param {ClickHandlerOptions} options
+   */
+  _mouseEventContinue(event, callbackFunction = ()=>{}, options) {
+    const tile = MERCATOR.getTileAtLatLng(event.latLng, this.map.getZoom());
+    const tileId = getTileString(tile.z, tile.x, tile.y);
+    const tileContext = this._visibleTiles[tileId];
+    if (!tileContext) return;
+
+    const tilePoint = MERCATOR.fromLatLngToTilePoint(this.map, event);
+    /** @type {TileMapMouseEvent} */
+    const newEvent = {
+      ...event,
+      tileContext,
+      tilePoint: new window.google.maps.Point(tilePoint.x, tilePoint.y),
+    };
+
+    // if specific layers have been defined as clickable, only check those
+    for (const layerName of (this._clickableLayers || Object.keys(this.mVTLayers))) {
+      const layer = this.mVTLayers[layerName];
+      if (!layer) continue;
+      layer.handleClickEvent(newEvent, this);
+      this._mouseSelectedFeature(newEvent, callbackFunction, options);
+      if (options.limitToFirstVisibleLayer) break;
     }
   }
 
+  /**
+   * @param {TileMapMouseEvent} event
+   * @param {(event: TileMapMouseEvent)} callbackFunction
+   * @param {ClickHandlerOptions} options
+   */
   _mouseSelectedFeature(event, callbackFunction, options) {
     if (options.setSelected) {
       const feature = event.feature;
@@ -480,24 +527,25 @@ class MVTSource {
 
   deselectAllFeatures() {
     const zoom = this.map.getZoom();
+    /** @type {Array<string>} */
     const tilesToRedraw = [];
-    for (const featureId in this._selectedFeatures) {
-      const mVTFeature = this._selectedFeatures[featureId];
-      if (!mVTFeature) continue;
+    Object.entries(this._selectedFeatures).forEach(([featureId, mVTFeature]) => {
+      if (!mVTFeature) return;
       mVTFeature.setSelected(false);
-      const tiles = mVTFeature.tiles;
-      for (const id in tiles) {
-        delete this._tilesDrawn[id];
-        const idObject = getTileFromString(id);
-        if (idObject.zoom == zoom) {
-          tilesToRedraw[id] = true;
+      Object.entries(mVTFeature.tiles).forEach(([tileId, tile]) => {
+        delete this._tilesDrawn[tileId];
+        if (getTileFromString(tileId).zoom == zoom) {
+          tilesToRedraw.push(tileId);
         }
-      }
-    }
+      });
+    });
     this.redrawTiles(tilesToRedraw);
-    this._selectedFeatures = [];
+    this._selectedFeatures = {};
   }
 
+  /**
+   * @param {MVTFeature} mVTFeature
+   */
   featureSelected(mVTFeature) {
     if (!this._multipleSelection) {
       this.deselectAllFeatures();
@@ -505,6 +553,9 @@ class MVTSource {
     this._selectedFeatures[mVTFeature.featureId] = mVTFeature;
   }
 
+  /**
+   * @param {MVTFeature} mvtFeature
+   */
   featureDeselected(mvtFeature) {
     delete this._selectedFeatures[mvtFeature.featureId];
   }
@@ -517,90 +568,115 @@ class MVTSource {
       this._multipleSelection = true;
     }
     this.deselectAllFeatures();
-    for (let i = 0, length = featuresIds.length; i < length; i++) {
-      const featureId = featuresIds[i];
+    featuresIds.forEach((featureId) => {
+      // HACK: this may be called before layers are loaded, but we need to keep track of the selected features for
+      // rendering when they are loaded
       this._selectedFeatures[featureId] = false;
-      for (const key in this.mVTLayers) {
-        this.mVTLayers[key].setSelected(featureId);
-      }
-    }
+      Object.values(this.mVTLayers).forEach((layer) => {
+        layer.setSelected(featureId);
+      });
+    });
   }
 
+  /**
+   * @param {string} featureId
+   * @return {boolean}
+   */
   isFeatureSelected(featureId) {
     return this._selectedFeatures[featureId] != undefined;
   }
 
+  /**
+   * @return {Array<MVTFeature>}
+   */
   getSelectedFeatures() {
-    const selectedFeatures = [];
-    for (const featureId in this._selectedFeatures) {
-      selectedFeatures.push(this._selectedFeatures[featureId]);
-    }
-    return selectedFeatures;
+    return Object.values(this._selectedFeatures);
   }
 
+  /**
+   * @param {string} tileContextId tile id in the format 'zoom:x:y'
+   * @return {Array<MVTFeature>}
+   */
   getSelectedFeaturesInTile(tileContextId) {
+    /** @type {Array<MVTFeature>} */
     const selectedFeatures = [];
-    for (const featureId in this._selectedFeatures) {
-      const selectedFeature = this._selectedFeatures[featureId];
-      for (const tile in selectedFeature.tiles) {
-        if (tile == tileContextId) {
-          selectedFeatures.push(selectedFeature);
-        }
+    Object.values(this._selectedFeatures).forEach((selectedFeature) => {
+      if (selectedFeature.tiles[tileContextId]) {
+        selectedFeatures.push(selectedFeature);
       }
-    }
+    });
     return selectedFeatures;
   }
 
-  setFilter(filter, redrawTiles) {
-    redrawTiles = (redrawTiles === undefined || redrawTiles);
+  /**
+   * @param {filterFn} filter
+   * @param {boolean} [redrawTiles=true]
+   */
+  setFilter(filter, redrawTiles = true) {
     this._filter = filter;
-    for (const key in this.mVTLayers) {
-      this.mVTLayers[key].setFilter(filter);
-    }
+    Object.values(this.mVTLayers).forEach((layer) => layer.setFilter(filter));
     if (redrawTiles) {
       this.redrawAllTiles();
     }
   }
 
-  setStyle(style, redrawTiles) {
-    redrawTiles = (redrawTiles === undefined || redrawTiles);
+  /**
+   * @param {styleFn|StyleOptions} style
+   * @param {boolean} [redrawTiles=true]
+   */
+  setStyle(style, redrawTiles = true) {
     this.style = style;
-    for (const key in this.mVTLayers) {
-      this.mVTLayers[key].setStyle(style);
-    }
-
+    Object.values(this.mVTLayers).forEach((layer) => layer.setStyle(style));
     if (redrawTiles) {
       this.redrawAllTiles();
     }
   }
 
-  setVisibleLayers(visibleLayers, redrawTiles) {
-    redrawTiles = (redrawTiles === undefined || redrawTiles);
-    this._visibleLayers = visibleLayers;
+  /**
+   * @param {Array<string>} visibleLayers
+   * @param {boolean} [redrawTiles=true]
+   */
+  setVisibleLayers(visibleLayers, redrawTiles = true) {
+    this._visibleLayers = visibleLayers || null;
     if (redrawTiles) {
       this.redrawAllTiles();
     }
   }
 
+  /**
+   * @return {Array<string>}
+   */
   getVisibleLayers() {
     return this._visibleLayers;
   }
 
+  /**
+   * @param {Array<string>} clickableLayers
+   */
   setClickableLayers(clickableLayers) {
-    this._clickableLayers = clickableLayers;
+    this._clickableLayers = clickableLayers || null;
   }
 
+  /**
+   * Redraw all visible tiles
+   */
   redrawAllTiles() {
     this._tilesDrawn = {};
-    this.redrawTiles(this._visibleTiles);
+    this.redrawTiles(Object.keys(this._visibleTiles));
   }
 
-  redrawTiles(tiles) {
-    for (const id in tiles) {
-      this.redrawTile(id);
-    }
+  /**
+   * Redraw the tiles specified by ab array of tile ids
+   * @param {Array<string>} tiles
+   */
+  redrawTiles(tiles = []) {
+    tiles.forEach((id) => this.redrawTile(id));
   }
 
+  /**
+   * Redraw the tile specified by the tile id
+   * @param {string} id
+   */
   redrawTile(id) {
     delete this._tilesDrawn[id];
     const tileContext = this._visibleTiles[id];
@@ -609,15 +685,20 @@ class MVTSource {
     this._drawVectorTile(tileContext.vectorTile, tileContext);
   }
 
+  /**
+   * @param {HTMLCanvasElement} canvas
+   */
   clearTile(canvas) {
-    const context = canvas.getContext('2d');
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  setUrl(url, redrawTiles) {
-    redrawTiles = (redrawTiles === undefined || redrawTiles);
+  /**
+   * @param {string} url url of the MVT source
+   * @param {boolean} [redrawTiles=true]
+   */
+  setUrl(url, redrawTiles = true) {
     this._url = url;
-    this.mVTLayers = [];
+    this.mVTLayers = {};
     if (redrawTiles) {
       this.redrawAllTiles();
     }
@@ -627,4 +708,5 @@ class MVTSource {
 export {
   MVTSource,
   getTileFromString,
+  getTileString,
 };

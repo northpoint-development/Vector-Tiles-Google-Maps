@@ -28,7 +28,7 @@
         import { MVTSource } from '../main.js';
         var map;
         var mvtSource;        
-        document.getElementById("inputSelect").onclick = SeltecRandomItems;
+        document.getElementById("inputSelect").onclick = SelectRandomItems;
         document.getElementById("inputDeselect").onclick = DeselectAll;
 
         window.InitGoogleMap = function InitGoogleMap() {
@@ -52,17 +52,16 @@
                 },                
                 selectedFeatures: ['29', '39', '38'] // list of feature ids to mark as selected
             }
-
             mvtSource = new MVTSource(map, options);
             map.overlayMapTypes.insertAt(0, mvtSource);
         }
 
-        function SeltecRandomItems() {
+        function SelectRandomItems() {
             var localIds = [];
             for (var i = 0; i < 3; i++) {
                 const rndInt = Math.floor(Math.random() * 52) + 1;
                 localIds.push(rndInt);
-            }            
+            }
             mvtSource.setSelectedFeatures(localIds);
         }
 
