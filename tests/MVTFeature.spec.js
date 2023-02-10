@@ -254,7 +254,7 @@ describe('MVTFeature', () => {
     let mVTFeature;
     beforeEach(() => {
       mVTFeature = new MVTFeature(mockOptions());
-      mVTFeature.drawCoordinates = jest.fn();
+      mVTFeature.drawGeometry = jest.fn();
       jest.clearAllMocks();
 
       mVTFeature.drawLineString(mockTileContext, mockTile, mockStyle);
@@ -271,7 +271,7 @@ describe('MVTFeature', () => {
     let mVTFeature;
     beforeEach(() => {
       mVTFeature = new MVTFeature(mockOptions());
-      mVTFeature.drawCoordinates = jest.fn();
+      mVTFeature.drawGeometry = jest.fn();
       jest.clearAllMocks();
     });
     it('calls this.drawCoordinates with expected arguments', () => {
@@ -307,7 +307,7 @@ describe('MVTFeature', () => {
       const mVTFeature = new MVTFeature(mockOptions());
       jest.clearAllMocks();
 
-      mVTFeature.drawCoordinates(mockTileContext, tileCopy);
+      mVTFeature.drawGeometry(mockTileContext, tileCopy);
     });
     it('calls Path2D.moveTo with the point from first coordinates of each set', () => {
       expect(mockMoveTo).toHaveBeenNthCalledWith(1, 0.0625, 0.125);

@@ -18,11 +18,11 @@
             </p>
         </div>
     </div>
-   <script type="module"  src="../main.js"></script>
-    <script type="text/javascript">
+   <script type="module" type="text/javascript">
+        import { MVTSource } from '../main.js';
         var map;
 
-        function InitGoogleMap() {
+        window.InitGoogleMap = function InitGoogleMap() {
             map = new google.maps.Map(document.getElementById("map"), {
                 center: { lat: 40.4689896, lng: -3.58839404 },
                 zoom: 7

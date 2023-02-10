@@ -18,10 +18,11 @@
             </p>
         </div>
     </div>
-   <script type="module"  src="../main.js"></script>
-    <script type="text/javascript">
+    <script type="module" type="text/javascript">
+        import { MVTSource, getPoint, getContext2d } from '../main.js';
+
         var map;
-        function InitGoogleMap() {
+        window.InitGoogleMap = function InitGoogleMap() {
             map = new google.maps.Map(document.getElementById("map"), {
                 center: { lat: 41.39, lng: 2.14 },
                 zoom: 15,
@@ -91,10 +92,10 @@
 
             }
 
-            function DrawTriangle(tileContext, tile, style, mVTFeature) {                
-                var coordinates = tile.vectorTileFeature.coordinates[0][0];
-                var point = mVTFeature.getPoint(coordinates, tileContext, tile.divisor);
-                var context2d = mVTFeature.getContext2d(tileContext.canvas, style);
+            function DrawTriangle(tileContext, tile, style, mVTFeature) {      
+                var coordinates = tile.vectorTileFeature.loadGeometry()[0][0];
+                var point = getPoint(coordinates, tileContext, tile.divisor);
+                var context2d = getContext2d(tileContext.canvas, style);
                 var radius = style.radius;                
 
                 var angle = Math.atan2(-1, 0);                

@@ -1,286 +1,392 @@
 /*
  *  Created by Jes�s Barrio on 04/2021
  */
+
+// eslint-disable-next-line spaced-comment
+/// <reference types="google.maps" />
+
 import Pbf from 'pbf';
 import {VectorTile} from '@mapbox/vector-tile';
 import * as MERCATOR from '../lib/mercator/Mercator.js';
-import MVTLayer from './MVTLayer.js';
-export class MVTSource {
-  constructor(map, options) {
-    const self = this;
-    this.map = map;
-    this._url = options.url || ''; // Url TO Vector Tile Source,
-    this._sourceMaxZoom = options.sourceMaxZoom || false; // Source maxzoom to enable overzoom
-    this._debug = options.debug || false; // Draw tiles lines and ids
-    this.getIDForLayerFeature = options.getIDForLayerFeature || function(feature) {
-      return feature.properties.id || feature.properties.Id || feature.properties.ID;
-    };
-    this._visibleLayers = options.visibleLayers || false; // List of visible layers
-    this._xhrHeaders = options.xhrHeaders || {}; // Headers added to every url request
-    this._clickableLayers = options.clickableLayers || false; // List of layers that are clickable
-    this._filter = options.filter || false; // Filter features
-    this._cache = options.cache || false; // Load tiles in cache to avoid duplicated requests
-    this._tileSize = options.tileSize || 256; // Default tile size
-    this.tileSize = new google.maps.Size(this._tileSize, this._tileSize);
-    this.style = options.style || function(feature) {
-      const style = {};
-      switch (feature.type) {
-        case 1: // 'Point'
-          style.fillStyle = 'rgba(49,79,79,1)';
-          style.radius = 5;
-          style.selected = {
-            fillStyle: 'rgba(255,255,0,0.5)',
-            radius: 6,
-          };
-          break;
-        case 2: // 'LineString'
-          style.strokeStyle = 'rgba(136, 86, 167, 1)';
-          style.lineWidth = 3;
-          style.selected = {
-            strokeStyle: 'rgba(255,25,0,0.5)',
-            lineWidth: 4,
-          };
-          break;
-        case 3: // 'Polygon'
-          style.fillStyle = 'rgba(188, 189, 220, 0.5)';
-          style.strokeStyle = 'rgba(136, 86, 167, 1)';
-          style.lineWidth = 1;
-          style.selected = {
-            fillStyle: 'rgba(255,140,0,0.3)',
-            strokeStyle: 'rgba(255,140,0,1)',
-            lineWidth: 2,
-          };
-          break;
-      }
-      return style;
-    };
-    this._customDraw = options.customDraw || false;
+import {MVTLayer} from './MVTLayer.js';
 
-    this.mVTLayers = []; // Keep a list of the layers contained in the PBFs
-    this._tilesDrawn = []; //  List of tiles drawn  (when cache enabled)
+/**
+ * @typedef {import('@mapbox/vector-tile').VectorTileLayer} VectorTileLayer
+ * @typedef {import('@mapbox/vector-tile').VectorTileFeature} VectorTileFeature
+ * @typedef {import('./MVTFeature').FeatureTile} FeatureTile
+ */
+
+/**
+ * @callback featureIdFn - A function that returns a unique id for a feature
+ * @param {VectorTileFeature} feature
+ * @return {string|number}
+ *
+ * @callback styleFn - A function that returns a style for a feature
+ * @param {VectorTileFeature} feature
+ * @return {StyleOptions}
+ *
+ * @callback drawFn - A function that returns a style for a feature
+ * @param {TileContext} tileContext
+ * @param {FeatureTile} tile
+ * @param {StyleOptions} style
+ * @return {void}
+ *
+ * @callback filterFn - A function that returns a style for a feature
+ * @param {VectorTileFeature} feature
+ * @param {TileContext} context
+ * @return {boolean}
+ */
+
+/**
+ * @typedef {Object} MVTSourceOptions
+ * @property {string} [url] Url to Vector Tile Source
+ * @property {number} [sourceMaxZoom] Source max zoom to enable over zoom
+ * @property {boolean} [debug] Draw tiles lines and ids
+ * @property {boolean} [cache=false] Load tiles in cache to avoid duplicated requests
+ * @property {number} [tileSize=256] Tile size
+ * @property {Array<String>} [visibleLayers] List of visible layers
+ * @property {Array<String>} [clickableLayers] List of layers that are clickable
+ * @property {Array<String>} [selectedFeatures] List of selected features
+ * @property {featureIdFn} [getIDForLayerFeature] Function to get id for layer feature
+ * @property {styleFn} [style] Styling function
+ * @property {filterFn} [filter] Filter function
+ * @property {drawFn} [customDraw] Custom draw function
+*/
+
+/**
+ * @typedef {Object} TileContext
+ * @property {string} id Tile id in format 'zoom:x:y'
+ * @property {HTMLCanvasElement} canvas Canvas element for drawing tile
+ * @property {number} zoom Zoom level this tile belongs to
+ * @property {number} tileSize Tile size
+ * @property {string} parentId Parent tile id in format 'zoom:x:y'
+ * @property {VectorTile} [vectorTile]
+ */
+
+/**
+ * @typedef {Object} StyleOptions
+ * @property {string} fillStyle Fill color
+ * @property {string} strokeStyle Stroke color
+ * @property {number} lineWidth Stroke width
+ * @property {number} radius Point radius
+ * @property {StyleOptions} selected Selected style
+ */
+
+/**
+ * Returns the default styling function
+ * @param {VectorTileFeature} feature
+ * @return {StyleOptions}
+ */
+const defaultStyleFn = function(feature) {
+  return {
+    1: { // Point
+      fillStyle: 'rgba(49,79,79,1)',
+      radius: 5,
+      selected: {
+        fillStyle: 'rgba(255,255,0,0.5)',
+        radius: 6,
+      },
+    },
+    2: { // LineString
+      strokeStyle: 'rgba(136, 86, 167, 1)',
+      lineWidth: 3,
+      selected: {
+        strokeStyle: 'rgba(255,25,0,0.5)',
+        lineWidth: 4,
+      },
+    },
+    3: { // Polygon
+      fillStyle: 'rgba(188, 189, 220, 0.5)',
+      strokeStyle: 'rgba(136, 86, 167, 1)',
+      lineWidth: 1,
+      selected: {
+        fillStyle: 'rgba(255,140,0,0.3)',
+        strokeStyle: 'rgba(255,140,0,1)',
+        lineWidth: 2,
+      },
+    },
+  }[feature.type] || {};
+};
+
+/**
+ * @param {VectorTileFeature} feature
+ * @return {string|number}
+ */
+const defaultFeatureIdFn = function(feature) {
+  return feature?.properties?.id || feature?.properties?.Id || feature?.properties?.ID;
+};
+
+/**
+ * @param {number} zoom
+ * @param {number} x
+ * @param {number} y
+ * @return {string}
+ */
+const getTileString = (zoom, x, y) => [zoom, x, y].join(':');
+
+/**
+ * @param {string} id Tile id in format 'zoom:x:y'
+ * @return {{zoom: number, x: number, y: number}}
+ */
+const getTileFromString = (id) => {
+  try {
+    const [zoom, x, y] = id.split(':');
+    return {
+      zoom: Number(zoom),
+      x: Number(x),
+      y: Number(y),
+    };
+  } catch (e) {
+    console.error('Error parsing tile id', id);
+    return {zoom: 0, x: 0, y: 0};
+  }
+};
+
+/**
+ * @param {string} tileId
+ * @param {number} maxZoom
+ * @return {string} Parent tile id
+ */
+const getParentId = (tileId, maxZoom) => {
+  if (!maxZoom) return '';
+  const tile = getTileFromString(tileId);
+  if (!(tile.zoom > maxZoom)) return '';
+  const zoomDistance = tile.zoom - maxZoom;
+  const zoom = tile.zoom - zoomDistance;
+  const x = tile.x >> zoomDistance;
+  const y = tile.y >> zoomDistance;
+  return getTileString(zoom, x, y);
+};
+
+/**
+ * @param {Document} ownerDocument
+ * @param {string} tileId
+ * @param {number} tileSize
+ * @return {HTMLCanvasElement}
+ */
+const createCanvas = (ownerDocument, tileId, tileSize) => {
+  const canvas = ownerDocument.createElement('canvas');
+  canvas.width = tileSize;
+  canvas.height = tileSize;
+  canvas.id = tileId;
+  return canvas;
+};
+
+/**
+ * MVTSource is a class to load and draw Vector Tiles from a source.
+ * @class
+ * @implements {google.maps.MapType}
+ */
+class MVTSource {
+  /**
+   * @param {google.maps.Map} map
+   * @param {MVTSourceOptions} options
+   */
+  constructor(map, options = {}) {
+    // Private properties
+    /** @type {string} Url to Vector Tile Source */
+    this._url = options.url || '';
+    /** @type {number} Source max zoom to enable over zoom */
+    this._sourceMaxZoom = options.sourceMaxZoom ?? null;
+    /** @type {boolean} Draw tiles lines and ids */
+    this._debug = options.debug || false;
+    /** @type {Array<String>} List of visible layers */
+    this._visibleLayers = options.visibleLayers || null;
+    /** @type {Array<String>} List of layers that are clickable */
+    this._clickableLayers = options.clickableLayers || null;
+    /** @type {boolean} Load tiles in cache to avoid duplicated requests */
+    this._cache = options.cache || false;
+    /** @type {number} Default tile size */
+    this._tileSize = options.tileSize || 256;
+    /** @type {filterFn} filter function to allow/deny features */
+    this._filter = options.filter || false; // Filter features
+    /** @type {Record<string, string>} Additional headers to add when requesting tiles from the server */
+    this._xhrHeaders = options.xhrHeaders || {}; // Headers added to every url request
+    /** @type {Record<string, TileContext>} List of tiles drawn. Only populated when cache enabled */
+    this._tilesDrawn = {};
+    /** @type {drawFn} */
+    this._customDraw = options.customDraw || null;
+    /** @type {boolean} Allow multiple selection */
+    this._multipleSelection;
+
+
     this._visibleTiles = []; // tiles currently in the viewport
     this._selectedFeatures = []; // list of selected features
+
+
+    // Public properties
+    /** @type {google.maps.Map} */
+    this.map = map;
+
+    /** @type {featureIdFn} Function to get id for layer feature */
+    this.getIDForLayerFeature = options.getIDForLayerFeature || defaultFeatureIdFn;
+    /** @type {google.maps.Size} */
+    this.tileSize = new window.google.maps.Size(this._tileSize, this._tileSize);
+    /** @type {styleFn|StyleOptions} */
+    this.style = options.style || defaultStyleFn;
+
     if (options.selectedFeatures) {
       this.setSelectedFeatures(options.selectedFeatures);
     }
+    /** @type {Record<string, MVTLayer>} Keep a list of the layers contained in the PBFs */
+    this.mVTLayers = {};
 
+    // Init
     this.map.addListener('zoom_changed', () => {
-      self._zoomChanged();
+      this._visibleTiles = [];
+      if (!this._cache) {
+        this.mVTLayers = {};
+      }
     });
   }
 
-  getTile(coord, zoom, ownerDocument) {
-    const tileContext = this.drawTile(coord, zoom, ownerDocument);
-    this._setVisibleTile(tileContext);
+  /**
+   * Invoked by the Google Maps API as part of the MapType interface.
+   * Returns a tile for the given tile coordinate (x, y) and zoom level. This tile will be appended to the given
+   * ownerDocument. Not available for base map types.
+   * @param {google.maps.Point} tileCoord
+   * @param {number} zoom
+   * @param {Document} ownerDocument
+   * @return {Element}
+   */
+  getTile(tileCoord, zoom, ownerDocument) {
+    const tileContext = this.drawTile(tileCoord, zoom, ownerDocument);
+    this._visibleTiles[tileContext.id] = tileContext;
     return tileContext.canvas;
   }
 
-  releaseTile(canvas) {
-    // this._deleteVisibleTile(canvas.id);
-  }
+  /**
+   * Invoked by the Google Maps API as part of the MapType interface.
+   * Releases the given tile, performing any necessary cleanup. The provided tile will have already been removed from
+   * the document. Optional.
+   * @param {Element} tile
+   */
+  releaseTile(tile) {}
 
-  _zoomChanged() {
-    this._resetVisibleTiles();
-    if (!this._cache) {
-      this._resetMVTLayers();
-    }
-  }
-
-  _resetMVTLayers() {
-    this.mVTLayers = [];
-  }
-
-  _deleteVisibleTile(id) {
-    delete this._visibleTiles[id];
-  }
-
-  _resetVisibleTiles() {
-    this._visibleTiles = [];
-  }
-
-  _setVisibleTile(tileContext) {
-    this._visibleTiles[tileContext.id] = tileContext;
-  }
-
+  /**
+   * @param {google.maps.Point} coord
+   * @param {number} zoom
+   * @param {Document} ownerDocument
+   * @return {TileContext}
+   */
   drawTile(coord, zoom, ownerDocument) {
-    const id = this.getTileId(zoom, coord.x, coord.y);
-    let tileContext = this._tilesDrawn[id];
-    if (tileContext) {
-      return tileContext;
+    const id = getTileString(zoom, coord.x, coord.y);
+    if (this._tilesDrawn[id]) {
+      return this._tilesDrawn[id];
     }
-
-    tileContext = this._createTileContext(coord, zoom, ownerDocument);
-    this._xhrRequest(tileContext);
+    const canvas = createCanvas(ownerDocument, id, this._tileSize);
+    const parentId = getParentId(id, this._sourceMaxZoom);
+    const tileContext = {
+      id,
+      canvas,
+      zoom,
+      tileSize: this._tileSize,
+      parentId,
+    };
+    this._fetchTile(tileContext);
     return tileContext;
   }
 
-  _createTileContext(coord, zoom, ownerDocument) {
-    const id = this.getTileId(zoom, coord.x, coord.y);
-    const canvas = this._createCanvas(ownerDocument, id);
-    const parentId = this._getParentId(id);
-
-    return {
-      id: id,
-      canvas: canvas,
-      zoom: zoom,
-      tileSize: this._tileSize,
-      parentId: parentId,
-    };
-  }
-
-  _getParentId(id) {
-    let parentId = false;
-    if (this._sourceMaxZoom) {
-      const tile = this.getTileObject(id);
-      if (tile.zoom > this._sourceMaxZoom) {
-        const zoomDistance = tile.zoom - this._sourceMaxZoom;
-        const zoom = tile.zoom - zoomDistance;
-        const x = tile.x >> zoomDistance;
-        const y = tile.y >> zoomDistance;
-        parentId = this.getTileId(zoom, x, y);
-      }
-    }
-    return parentId;
-  }
-
-  _createCanvas(ownerDocument, id) {
-    const canvas = ownerDocument.createElement('canvas');
-    canvas.width = this._tileSize;
-    canvas.height = this._tileSize;
-    canvas.id = id;
-    return canvas;
-  }
-
-  getTileId(zoom, x, y) {
-    return [zoom, x, y].join(':');
-  }
-
-  getTileObject(id) {
-    const values = id.split(':');
-    return {
-      zoom: values[0],
-      x: values[1],
-      y: values[2],
-    };
-  }
-
-  _xhrRequest(tileContext) {
-    const self = this;
-
+  /**
+   * @param {TileContext} tileContext
+   */
+  async _fetchTile(tileContext) {
     const id = tileContext.parentId || tileContext.id;
-    const tile = this.getTileObject(id);
+    const tile = getTileFromString(id);
 
-    const src = this._url
-        .replace('{z}', tile.zoom)
-        .replace('{x}', tile.x)
-        .replace('{y}', tile.y);
-
-    const xmlHttpRequest = new XMLHttpRequest();
-    xmlHttpRequest.onload = function() {
-      if (xmlHttpRequest.status == '200' && xmlHttpRequest.response) {
-        return self._xhrResponseOk(tileContext, xmlHttpRequest.response);
-      }
-      self._drawDebugInfo(tileContext);
-    };
-    xmlHttpRequest.open('GET', src, true);
-    for (const header in this._xhrHeaders) {
-      xmlHttpRequest.setRequestHeader(header, this._xhrHeaders[header]);
+    const src = this._url.replace('{z}', tile.zoom).replace('{x}', tile.x).replace('{y}', tile.y);
+    /** @type {Response} */
+    let response;
+    try {
+      response = await fetch(src, {
+        headers: this._xhrHeaders,
+      });
+    } catch (error) {
+      console.error(new Error(`Error fetching tile ${src}`), error);
     }
-    xmlHttpRequest.responseType = 'arraybuffer';
-    xmlHttpRequest.send();
+    if (response.ok) {
+      // If the zoom has changed since the request was made, don't draw the tile
+      if (this.map.getZoom() != tileContext.zoom) return;
+
+      const arrayBuffer = await response.arrayBuffer();
+      const vectorTile = new VectorTile((new Pbf((new Uint8Array(arrayBuffer)))));
+      this._drawVectorTile(vectorTile, tileContext);
+    }
+    this._drawDebugInfo(tileContext);
   }
 
-  _xhrResponseOk(tileContext, response) {
-    if (this.map.getZoom() != tileContext.zoom) {
-      return;
-    }
-    const uint8Array = new Uint8Array(response);
-    const pbf = new Pbf(uint8Array);
-    const vectorTile = new VectorTile(pbf);
-    // This is copied from the code originally found in VectorTile.js
-    // It is necessary to actually load the geometry of each feature before they can be drawn
-    for (var key in vectorTile.layers) {
-      var layer = vectorTile.layers[key];
-      layer.parsedFeatures = [];
-      var featuresLength = layer._features.length;
-      for (var i = 0, len = featuresLength; i < len; i++) {
-        var feature = layer.feature(i);
-        feature.coordinates = feature.loadGeometry();
-        layer.parsedFeatures.push(feature);
-      }
-      vectorTile.layers[key] = layer;
-    }
-    this._drawVectorTile(vectorTile, tileContext);
-  }
+  /**
+   * @param {VectorTile} vectorTile
+   * @param {TileContext} tileContext
+   */
+  _drawVectorTile(vectorTile, tileContext) {
+    // If the user has specified a list of layers to draw, only draw those layers
+    const layers = this._visibleLayers ? this._visibleLayers : Object.keys(vectorTile.layers);
+    layers.forEach((key) => {
+      if (!vectorTile.layers[key]) return; // If the user has specified a layer that doesn't exist, skip it
+      this._drawVectorTileLayer(vectorTile.layers[key], key, tileContext);
+    });
 
-  _setTileDrawn(tileContext) {
+    tileContext.vectorTile = vectorTile;
     if (!this._cache) return;
+    // If cache is enabled, store the TileContext in the cache
     this._tilesDrawn[tileContext.id] = tileContext;
   }
 
-  deleteTileDrawn(id) {
-    delete this._tilesDrawn[id];
-  }
-
-  _resetTileDrawn() {
-    this._tilesDrawn = [];
-  }
-
-  _drawVectorTile(vectorTile, tileContext) {
-    if (this._visibleLayers) {
-      for (let i = 0, length = this._visibleLayers.length; i < length; i++) {
-        var key = this._visibleLayers[i];
-        if (vectorTile.layers[key]) {
-          var vectorTileLayer = vectorTile.layers[key];
-          this._drawVectorTileLayer(vectorTileLayer, key, tileContext);
-        }
-      }
-    } else {
-      for (var key in vectorTile.layers) {
-        var vectorTileLayer = vectorTile.layers[key];
-        this._drawVectorTileLayer(vectorTileLayer, key, tileContext);
-      }
+  /**
+   * @param {VectorTileLayer} vectorTileLayer
+   * @param {string} name
+   * @param {TileContext} tileContext
+   */
+  _drawVectorTileLayer(vectorTileLayer, name, tileContext) {
+    if (!this.mVTLayers[name]) {
+      this.mVTLayers[name] = this._createMVTLayer(name);
     }
-    tileContext.vectorTile = vectorTile;
-    this._drawDebugInfo(tileContext);
-    this._setTileDrawn(tileContext);
+    const mVTLayer = this.mVTLayers[name];
+    mVTLayer.parseVectorTileFeatures(this, vectorTileLayer, tileContext);
   }
 
-  _drawVectorTileLayer(vectorTileLayer, key, tileContext) {
-    if (!this.mVTLayers[key]) {
-      this.mVTLayers[key] = this._createMVTLayer(key);
-    }
-    const mVTLayer = this.mVTLayers[key];
-    mVTLayer.parseVectorTileFeatures(this, vectorTileLayer.parsedFeatures, tileContext);
-  }
-
-  _createMVTLayer(key) {
+  /**
+   * Creates a new MVTLayer instance
+   * @param {string} name name of the layer
+   * @return {MVTLayer} MVTLayer instance
+   */
+  _createMVTLayer(name) {
     const options = {
       getIDForLayerFeature: this.getIDForLayerFeature,
-      filter: this._filter,
       style: this.style,
-      name: key,
+      name,
+      filter: this._filter,
       customDraw: this._customDraw,
     };
     return new MVTLayer(options);
   }
 
+  /**
+   * @param {TileContext} tileContext
+   */
   _drawDebugInfo(tileContext) {
     if (!this._debug) return;
-    const tile = this.getTileObject(tileContext.id);
+    const tile = getTileFromString(tileContext.id);
     const width = this._tileSize;
     const height = this._tileSize;
     const context2d = tileContext.canvas.getContext('2d');
     context2d.strokeStyle = '#000000';
     context2d.fillStyle = '#FFFF00';
-    context2d.strokeRect(0, 0, width, height);
     context2d.font = '12px Arial';
-    context2d.fillRect(0, 0, 5, 5);
-    context2d.fillRect(0, height - 5, 5, 5);
-    context2d.fillRect(width - 5, 0, 5, 5);
-    context2d.fillRect(width - 5, height - 5, 5, 5);
-    context2d.fillRect(width / 2 - 5, height / 2 - 5, 10, 10);
-    context2d.strokeText(tileContext.zoom + ' ' + tile.x + ' ' + tile.y, width / 2 - 30, height / 2 - 10);
+    context2d.strokeRect(0, 0, width, height); // outer border
+    context2d.fillRect(0, 0, 5, 5); // top left corner marker
+    context2d.fillRect(0, height - 5, 5, 5); // bottom left corner marker
+    context2d.fillRect(width - 5, 0, 5, 5); // top right corner marker
+    context2d.fillRect(width - 5, height - 5, 5, 5); // bottom right corner marker
+    context2d.fillRect(width / 2 - 5, height / 2 - 5, 10, 10); // center marker
+    context2d.strokeText(`Z: ${tileContext.zoom} X: ${tile.x} Y: ${tile.y}`, 10, 20);
+    if (tileContext.vectorTile) {
+      context2d.strokeText(`Layers: ${Object.keys(tileContext.vectorTile.layers).length}`, 10, 20 + 15);
+      Object.entries(tileContext.vectorTile.layers).forEach(([key, layer], index) => {
+        context2d.strokeText(`${key}: ${layer.length}`, 10, 20 + 15 + (index + 1) * 15);
+      });
+    }
   }
 
   onClick(event, callbackFunction, options) {
@@ -324,7 +430,7 @@ export class MVTSource {
     const limitToFirstVisibleLayer = options.limitToFirstVisibleLayer || false;
     const zoom = this.map.getZoom();
     const tile = MERCATOR.getTileAtLatLng(event.latLng, zoom);
-    const id = this.getTileId(tile.z, tile.x, tile.y);
+    const id = getTileString(tile.z, tile.x, tile.y);
     const tileContext = this._visibleTiles[id];
     if (!tileContext) {
       return;
@@ -352,14 +458,14 @@ export class MVTSource {
       if (feature) {
         if (options.mouseHover) {
           if (!feature.selected) {
-            feature.select();
+            feature.setSelected(true);
           }
         } else {
           if (options.toggleSelection) {
-            feature.toggle();
+            feature.setSelected(!feature.selected);
           } else {
             if (!feature.selected) {
-              feature.select();
+              feature.setSelected(true);
             }
           }
         }
@@ -379,10 +485,10 @@ export class MVTSource {
       const mVTFeature = this._selectedFeatures[featureId];
       if (!mVTFeature) continue;
       mVTFeature.setSelected(false);
-      const tiles = mVTFeature.getTiles();
+      const tiles = mVTFeature.tiles;
       for (const id in tiles) {
-        this.deleteTileDrawn(id);
-        const idObject = this.getTileObject(id);
+        delete this._tilesDrawn[id];
+        const idObject = getTileFromString(id);
         if (idObject.zoom == zoom) {
           tilesToRedraw[id] = true;
         }
@@ -403,6 +509,9 @@ export class MVTSource {
     delete this._selectedFeatures[mvtFeature.featureId];
   }
 
+  /**
+   * @param {Array<String>} featuresIds
+   */
   setSelectedFeatures(featuresIds) {
     if (featuresIds.length > 1) {
       this._multipleSelection = true;
@@ -482,7 +591,7 @@ export class MVTSource {
   }
 
   redrawAllTiles() {
-    this._resetTileDrawn();
+    this._tilesDrawn = {};
     this.redrawTiles(this._visibleTiles);
   }
 
@@ -493,7 +602,7 @@ export class MVTSource {
   }
 
   redrawTile(id) {
-    this.deleteTileDrawn(id);
+    delete this._tilesDrawn[id];
     const tileContext = this._visibleTiles[id];
     if (!tileContext || !tileContext.vectorTile) return;
     this.clearTile(tileContext.canvas);
@@ -508,9 +617,14 @@ export class MVTSource {
   setUrl(url, redrawTiles) {
     redrawTiles = (redrawTiles === undefined || redrawTiles);
     this._url = url;
-    this._resetMVTLayers();
+    this.mVTLayers = [];
     if (redrawTiles) {
       this.redrawAllTiles();
     }
   }
 }
+
+export {
+  MVTSource,
+  getTileFromString,
+};
