@@ -1,14 +1,8 @@
-import {
-  MVTSource,
-  getTileFromString,
-  getTileString,
-} from './src/MVTSource.js';
-import {
-  MVTFeature,
-  getPoint,
-  getContext2d,
-} from './src/MVTFeature.js';
+import {MVTSource} from './src/MVTSource.js';
+import {MVTFeature} from './src/MVTFeature.js';
 import {MVTLayer} from './src/MVTLayer.js';
+import {getContext2d} from './lib/drawing.js';
+import {getPoint, getTileFromString, getTileString} from './lib/geometry.js';
 
 
 export {

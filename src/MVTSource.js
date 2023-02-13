@@ -9,6 +9,7 @@ import Pbf from 'pbf';
 import {VectorTile} from '@mapbox/vector-tile';
 import * as MERCATOR from '../lib/mercator/Mercator.js';
 import {MVTLayer} from './MVTLayer.js';
+import {getTileFromString, getTileString} from '../lib/geometry.js';
 
 /**
  * @typedef {import('@mapbox/vector-tile').VectorTileLayer} VectorTileLayer
@@ -144,32 +145,6 @@ const defaultStyleFn = function(feature) {
  */
 const defaultFeatureIdFn = function(feature) {
   return feature?.properties?.id || feature?.properties?.Id || feature?.properties?.ID;
-};
-
-/**
- * @param {number} zoom
- * @param {number} x
- * @param {number} y
- * @return {string}
- */
-const getTileString = (zoom, x, y) => [zoom, x, y].join(':');
-
-/**
- * @param {string} id Tile id in format 'zoom:x:y'
- * @return {{zoom: number, x: number, y: number}}
- */
-const getTileFromString = (id) => {
-  try {
-    const [zoom, x, y] = id.split(':');
-    return {
-      zoom: Number(zoom),
-      x: Number(x),
-      y: Number(y),
-    };
-  } catch (e) {
-    console.error('Error parsing tile id', id);
-    return {zoom: 0, x: 0, y: 0};
-  }
 };
 
 /**
@@ -707,6 +682,4 @@ class MVTSource {
 
 export {
   MVTSource,
-  getTileFromString,
-  getTileString,
 };
