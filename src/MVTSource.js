@@ -308,8 +308,8 @@ class MVTSource {
 
     // Create the source url with the urlGenerator function if it exists, else replace {z} {y} and {x}
     let src;
-    if (this.urlGenerator) {
-      src = this.urlGenerator(tile.zoom, tile.x, tile.y);
+    if (this._urlGenerator) {
+      src = this._urlGenerator(tile.zoom, tile.x, tile.y);
     } else {
       src = this._url.replace('{z}', tile.zoom).replace('{x}', tile.x).replace('{y}', tile.y);
     }
