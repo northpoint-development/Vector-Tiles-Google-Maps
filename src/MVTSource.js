@@ -327,28 +327,10 @@ class MVTSource {
       // If the zoom has changed since the request was made, don't draw the tile
       if (this.map.getZoom() != tileContext.zoom) return;
 
-      // Get the buffer from the response
-      let buffer;
-      try {
-        const arrayBuffer = await response.arrayBuffer();
-        buffer = new Uint8Array(arrayBuffer);
-      } catch (error) {
-        console.error('Error occurred while getting arrayBuffer from response:', error);
-        return;
-      }
-
-      // Create a protobuf instance using the buffer
-      let pbf;
-      try {
-        pbf = new Pbf(buffer);
-      } catch (error) {
-        console.error('Error occurred while creating pbf instance:', error);
-        return;
-      }
-
       // Create a vector tile instance and draw it
       try {
-        const vectorTile = new VectorTile(pbf);
+        const arrayBuffer = await response.arrayBuffer();
+        const vectorTile = new VectorTile(new Pbf(new Uint8Array(arrayBuffer)));
         this._drawVectorTile(vectorTile, tileContext);
       } catch (error) {
         console.error('Error occurred while creating/drawing vector tile:', error);
