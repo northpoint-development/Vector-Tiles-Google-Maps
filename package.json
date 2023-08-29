@@ -1,9 +1,15 @@
 {
-    "name": "vector-tiles-google-maps",
-    "version": "0.0.1",
+    "name": "@northpoint-labs/vector-tiles-google-maps",
+    "version": "1.0.1",
     "author": "Jesús Barrio Pérez",
+    "main": "main.js",
     "license": "MIT",
     "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/northpoint-development/Vector-Tiles-Google-Maps"
+    },
+    "readmeFilename": "README.md",
     "scripts": {
         "test": "NODE_OPTIONS=--experimental-vm-modules jest",
         "dev": "vite",
