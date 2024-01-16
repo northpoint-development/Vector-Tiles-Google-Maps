@@ -471,12 +471,12 @@ class MVTSource {
    * @param {ClickHandlerOptions} options
    */
   _mouseEventContinue(event, callbackFunction = ()=>{}, options) {
-    const tile = getTileAtLatLng(event.latLng, this.map.getZoom());
+    const tile = getTileAtLatLng(event.latLng, this.map.getZoom(), this._tileSize);
     const tileId = getTileString(tile.z, tile.x, tile.y);
     const tileContext = this._visibleTiles[tileId];
     if (!tileContext) return;
 
-    const tilePoint = fromLatLngToTilePoint(this.map, event);
+    const tilePoint = fromLatLngToTilePoint(this.map, event, this._tileSize);
     /** @type {TileMapMouseEvent} */
     const newEvent = {
       ...event,

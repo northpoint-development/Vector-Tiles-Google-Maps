@@ -194,11 +194,16 @@ class MVTLayer {
    * @return {boolean}
    */
   _handleClickFeature(event, mVTFeature) {
-    return ({
-      3: this._handleClickFeaturePolygon,
-      2: this._handleClickFeatureLineString,
-      1: this._handleClickFeaturePoint,
-    })[mVTFeature.type]?.(event, mVTFeature);
+    switch (mVTFeature.type) {
+      case 3:
+        return this._handleClickFeaturePolygon(event, mVTFeature);
+      case 2:
+        return this._handleClickFeatureLineString(event, mVTFeature);
+      case 1:
+        return this._handleClickFeaturePoint(event, mVTFeature);
+      default:
+        return false;
+    }
   }
 
   /**
