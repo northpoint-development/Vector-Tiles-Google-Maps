@@ -137,7 +137,7 @@ describe('MVTLayer', () => {
         const mockFeature = {};
         const result = new MVTLayer(mockOptions()).getStyle(mockFeature);
 
-        expect(mockStyleFn).toHaveBeenCalledWith(mockFeature);
+        expect(mockStyleFn).toHaveBeenCalledWith(mockFeature, 'Mock Name');
         expect(result).toBe(mockStyle);
       });
       it('if MVTLayer\'s style is not a function, return it', () => {
