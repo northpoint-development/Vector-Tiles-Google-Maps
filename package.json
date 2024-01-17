@@ -1,6 +1,6 @@
 {
     "name": "@northpoint-labs/vector-tiles-google-maps",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "author": "Jesús Barrio Pérez",
     "main": "main.js",
     "license": "MIT",
