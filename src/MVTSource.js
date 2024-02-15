@@ -325,6 +325,17 @@ class MVTSource {
       response = await fetch(src, {
         headers: this._xhrHeaders,
       });
+      if (response.headers.get('Content-Type') !== 'application/octet-stream') {
+        response.ok = false;
+        if (response.headers.get('Content-Type') === 'application/json;charset=UTF-8') {
+          const json = await response.json();
+          const error = json.error;
+          if (error) {
+            throw new Error(error.message);
+          }
+        }
+        console.warn('Invalid content type. Cannot process tile');
+      }
     } catch (error) {
       console.error(`Error fetching tile at source '${src}': ${error}`);
       return;
