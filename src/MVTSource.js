@@ -314,6 +314,7 @@ class MVTSource {
     let response;
     /** @type {string} */
     let src;
+    let isCorrectContentType = true;
     try {
       // If this._url is a function general the url with it, else replace {z} {y} and {x} in a string
       if (typeof this._url === 'function') {
@@ -325,11 +326,22 @@ class MVTSource {
       response = await fetch(src, {
         headers: this._xhrHeaders,
       });
+      if (response.headers.get('Content-Type') !== 'application/octet-stream') {
+        isCorrectContentType = false;
+        if (response.headers.get('Content-Type') === 'application/json;charset=UTF-8') {
+          const json = await response.json();
+          const error = json.error;
+          if (error) {
+            throw new Error(error.code);
+          }
+        }
+        console.warn('Invalid content type. Cannot process tile');
+      }
     } catch (error) {
-      console.error(`Error fetching tile at source '${src}': ${error}`);
+      console.error(`HTTP error! Status: ${(error)} src: ${src}`);
       return;
     }
-    if (response.ok) {
+    if (response.ok & isCorrectContentType) {
       // If the zoom has changed since the request was made, don't draw the tile
       if (this.map.getZoom() != tileContext.zoom) return;
 
