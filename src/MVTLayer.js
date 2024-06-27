@@ -26,7 +26,7 @@ import {inCircle, getDistanceFromLine} from '../lib/mercator.js';
  *
  * @typedef {object} TileEvent
  * @property {TileContext} tileContext
- * @property {MVTFeature} feature
+ * @property {Array<MVTFeature>} features
  * @property {google.maps.Point} tilePoint
  *
  * @typedef {google.maps.MapMouseEvent&TileEvent} TileMapMouseEvent
@@ -159,32 +159,30 @@ class MVTLayer {
     // if the tile has not been parsed yet, pass the event through
     if (!canvasAndFeatures?.canvas || !canvasAndFeatures?.features) return event;
     // if the tile has been parsed, attach the feature to the event
-    event.feature = this._handleClickEvent(event, canvasAndFeatures.features, mVTSource);
+    // concat the features to the existing features array
+    event.features = [...event?.features ? event.features : [], ...this._handleClickEvent(event, canvasAndFeatures.features, mVTSource)];
     return event;
   }
 
   /**
-   * First searches for a clicked feature in the currently selected features in the tile, then searches for a clicked
-   * feature in all features in the tile. Returns the first feature that is found to be clicked.
+   * Searches for clicked features in all features in the tile. Returns all of the clicked features.
    * @param {TileMapMouseEvent} event
    * @param {Array<MVTFeature>} mVTFeatures
    * @param {MVTSource} mVTSource
-   * @return {MVTFeature}
+   * @return {Array<MVTFeature>}
    */
   _handleClickEvent(event, mVTFeatures, mVTSource) {
-    const currentSelectedFeaturesInTile = mVTSource.getSelectedFeaturesInTile(event?.tileContext?.id);
-    const feature = this._handleClickFeatures(event, currentSelectedFeaturesInTile);
-    return feature ? feature : this._handleClickFeatures(event, mVTFeatures);
+    return this._handleClickFeatures(event, mVTFeatures);
   }
 
   /**
-   * Returns the first feature that is found to be clicked
+   * Returns the features clicked.
    * @param {TileMapMouseEvent} event
    * @param {Array<MVTFeature>} mVTFeatures
-   * @return {MVTFeature}
+   * @return {Array<MVTFeature>}
    */
   _handleClickFeatures(event, mVTFeatures) {
-    return mVTFeatures.find((mVTFeature) => this._handleClickFeature(event, mVTFeature));
+    return mVTFeatures.filter((mVTFeature) => this._handleClickFeature(event, mVTFeature));
   }
 
   /**

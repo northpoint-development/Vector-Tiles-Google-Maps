@@ -504,6 +504,9 @@ class MVTSource {
       this._mouseSelectedFeature(newEvent, callbackFunction, options);
       if (options.limitToFirstVisibleLayer) break;
     }
+
+    // select the first feature and return one callback for all layers
+    this._mouseSelectedFeature(newEvent, callbackFunction, options);
   }
 
   /**
@@ -513,7 +516,7 @@ class MVTSource {
    */
   _mouseSelectedFeature(event, callbackFunction, options) {
     if (options.setSelected) {
-      const feature = event.feature;
+      const feature = event.features[0];
       if (feature) {
         if (options.mouseHover) {
           if (!feature.selected) {
