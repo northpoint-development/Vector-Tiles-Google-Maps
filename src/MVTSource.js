@@ -501,7 +501,6 @@ class MVTSource {
       const layer = this.mVTLayers[layerName];
       if (!layer) continue;
       layer.handleClickEvent(newEvent, this);
-      this._mouseSelectedFeature(newEvent, callbackFunction, options);
       if (options.limitToFirstVisibleLayer) break;
     }
 
