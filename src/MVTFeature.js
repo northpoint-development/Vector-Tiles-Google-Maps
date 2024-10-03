@@ -97,9 +97,17 @@ class MVTFeature {
    * Redraw all the tiles that this feature is in. Used to apply styling changes
    */
   redrawTiles() {
-    const mapZoom = this.mVTSource.map.getZoom();
+    const mapZoom = Math.round(this.mVTSource.map.getZoom());
+    const mapCeilingZoom = Math.ceil(this.mVTSource.map.getZoom());
+    const mapFloorZoom = Math.floor(this.mVTSource.map.getZoom());
+
+    // Only redraw the tiles that are visible at the current zoom level
+    // At x.5 zoom levels with fractional zoom enabled, some tiles will be visible at both zoom levels
+    // so we check for both the floor and ceiling zoom levels
     Object.keys(this.tiles).forEach((tileId) => {
-      if (getTileFromString(tileId).zoom !== mapZoom) return;
+      if (getTileFromString(tileId).zoom !== mapZoom && getTileFromString(tileId).zoom !==
+          mapCeilingZoom && getTileFromString(tileId).zoom !==
+          mapFloorZoom ) return;
       this.mVTSource.redrawTile(tileId);
     });
   }

@@ -343,8 +343,12 @@ class MVTSource {
     }
     if (response.ok & isCorrectContentType) {
       // If the zoom has changed since the request was made, don't draw the tile
-      if (this.map.getZoom() != tileContext.zoom) return;
-
+      // Round the zoom to the nearest whole number to avoid issues with fractional zooming
+      // If the zoom is at an x.5 zoom level, google maps retrieves tiles from both zoom levels
+      // so we check if the zoom matches the floor and ceiling of the zoom level as well
+      if (Math.round(this.map.getZoom()) != tileContext.zoom &&
+          Math.floor(this.map.getZoom()) != tileContext.zoom &&
+          Math.ceil(this.map.getZoom()) != tileContext.zoom) return;
       // Create a vector tile instance and draw it
       try {
         const arrayBuffer = await response.arrayBuffer();
@@ -483,7 +487,7 @@ class MVTSource {
    * @param {ClickHandlerOptions} options
    */
   _mouseEventContinue(event, callbackFunction = ()=>{}, options) {
-    const tile = getTileAtLatLng(event.latLng, this.map.getZoom(), this._tileSize);
+    const tile = getTileAtLatLng(event.latLng, Math.round(this.map.getZoom()), this._tileSize);
     const tileId = getTileString(tile.z, tile.x, tile.y);
     const tileContext = this._visibleTiles[tileId];
     if (!tileContext) return;
@@ -540,7 +544,7 @@ class MVTSource {
   }
 
   deselectAllFeatures() {
-    const zoom = this.map.getZoom();
+    const zoom = Math.round(this.map.getZoom());
     /** @type {Array<string>} */
     const tilesToRedraw = [];
     Object.entries(this._selectedFeatures).forEach(([featureId, mVTFeature]) => {
