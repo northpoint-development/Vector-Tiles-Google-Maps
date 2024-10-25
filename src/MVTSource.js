@@ -165,7 +165,6 @@ const defaultFeatureIdFn = function(feature) {
  * @private
  */
 const defaultLayerTypeFn = function(feature) {
-  console.log('defaultLayerTypeFn', feature);
   return feature?.properties?.LAYER_TYPE || feature?.properties?.layer_type || feature?.properties?.layerType || null;
 };
 
@@ -616,10 +615,11 @@ class MVTSource {
 
   /**
    * @param {string} featureId
+   * @param {string} type
    * @return {boolean}
    */
-  isFeatureSelected(featureId) {
-    return this._selectedFeatures[featureId] != undefined;
+  isFeatureSelected(featureId, type) {
+    return this._selectedFeatures[[featureId, type]] != undefined;
   }
 
   /**

@@ -95,7 +95,7 @@ class MVTLayer {
       vectorTileFeature,
       tileContext,
       style: this.getStyle(vectorTileFeature),
-      selected: mVTSource.isFeatureSelected(featureId),
+      selected: mVTSource.isFeatureSelected(featureId, vectorTileFeature.properties.LAYER_TYPE),
       featureId,
       customDraw: this._customDraw,
     });
@@ -140,10 +140,10 @@ class MVTLayer {
     const feature = this._mVTFeatures[featureId];
     if (feature === undefined) return;
     if (!feature.properties.LAYER_TYPE) {
-      this._mVTFeatures[featureId].setSelected(true);
+      feature.setSelected(true);
     }
     if (feature.properties.LAYER_TYPE && feature.properties.LAYER_TYPE === type) {
-      this._mVTFeatures[featureId].setSelected(true);
+      feature.setSelected(true);
     }
   }
 
