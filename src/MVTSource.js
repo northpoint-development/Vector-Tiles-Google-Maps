@@ -165,7 +165,7 @@ const defaultFeatureIdFn = function(feature) {
  * @private
  */
 const defaultLayerTypeFn = function(feature) {
-  return feature?.properties?.LAYER_TYPE || feature?.properties?.layer_type || feature?.properties?.layerType || null;
+  return feature?.properties?.LAYER_TYPE || null;
 };
 
 /**
