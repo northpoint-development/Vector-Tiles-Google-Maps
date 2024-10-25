@@ -30,6 +30,10 @@ import {getTileFromString, getTileString} from '../lib/geometry.js';
  * @param {VectorTileFeature} feature
  * @return {string|number}
  *
+ * * @callback layerTypeFn - A function that returns a unique id for a feature
+ * @param {VectorTileFeature} feature
+ * @return {string}
+ *
  * @callback styleFn - A function that returns a style for a feature
  * @param {VectorTileFeature} feature
  * @param {string} name
@@ -58,6 +62,7 @@ import {getTileFromString, getTileString} from '../lib/geometry.js';
  * @property {Array<String>} [clickableLayers] List of layers that are clickable
  * @property {Array<String>} [selectedFeatures] List of selected features
  * @property {featureIdFn} [getIDForLayerFeature] Function to get id for layer feature
+ * @property {featureIdFn} [getLayerTypeForFeature] Function to get id for layer feature
  * @property {styleFn} [style] Styling function
  * @property {filterFn} [filter] Filter function
  * @property {drawFn} [customDraw] Custom draw function
@@ -155,6 +160,16 @@ const defaultFeatureIdFn = function(feature) {
 };
 
 /**
+ * @param {VectorTileFeature} feature
+ * @return {string}
+ * @private
+ */
+const defaultLayerTypeFn = function(feature) {
+  console.log('defaultLayerTypeFn', feature);
+  return feature?.properties?.LAYER_TYPE || feature?.properties?.layer_type || feature?.properties?.layerType || null;
+};
+
+/**
  * @param {string} tileId
  * @param {number} maxZoom
  * @return {string} Parent tile id
@@ -233,6 +248,8 @@ class MVTSource {
     this.map = map;
     /** @type {featureIdFn} Function to get id for layer feature */
     this.getIDForLayerFeature = options.getIDForLayerFeature || defaultFeatureIdFn;
+    /** @type {featureIdFn} Function to get id for layer */
+    this.getLayerTypeForFeature = options.getLayerTypeForFeature || defaultLayerTypeFn;
     /** @type {google.maps.Size} */
     this.tileSize = new window.google.maps.Size(this._tileSize, this._tileSize);
     /** @type {styleFn|StyleOptions} */
@@ -568,7 +585,7 @@ class MVTSource {
     if (!this._multipleSelection) {
       this.deselectAllFeatures();
     }
-    this._selectedFeatures[mVTFeature.featureId] = mVTFeature;
+    this._selectedFeatures[[mVTFeature.featureId, mVTFeature.properties.LAYER_TYPE]] = mVTFeature;
   }
 
   /**
@@ -580,8 +597,9 @@ class MVTSource {
 
   /**
    * @param {Array<String>} featuresIds
+   * @param {string} [type]
    */
-  setSelectedFeatures(featuresIds) {
+  setSelectedFeatures(featuresIds, type = null) {
     if (featuresIds.length > 1) {
       this._multipleSelection = true;
     }
@@ -589,9 +607,9 @@ class MVTSource {
     featuresIds.forEach((featureId) => {
       // HACK: this may be called before layers are loaded, but we need to keep track of the selected features for
       // rendering when they are loaded
-      this._selectedFeatures[featureId] = false;
+      this._selectedFeatures[[featureId, type]] = false;
       Object.values(this.mVTLayers).forEach((layer) => {
-        layer.setSelected(featureId);
+        layer.setSelected(featureId, type);
       });
     });
   }

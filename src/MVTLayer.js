@@ -134,10 +134,17 @@ class MVTLayer {
   /**
    * Set the given feature as selected
    * @param {string} featureId
+   * @param {string} type
    */
-  setSelected(featureId) {
-    if (this._mVTFeatures[featureId] === undefined) return;
-    this._mVTFeatures[featureId].setSelected(true);
+  setSelected(featureId, type) {
+    const feature = this._mVTFeatures[featureId];
+    if (feature === undefined) return;
+    if (!feature.properties.LAYER_TYPE) {
+      this._mVTFeatures[featureId].setSelected(true);
+    }
+    if (feature.properties.LAYER_TYPE && feature.properties.LAYER_TYPE === type) {
+      this._mVTFeatures[featureId].setSelected(true);
+    }
   }
 
   /**
@@ -160,7 +167,9 @@ class MVTLayer {
     if (!canvasAndFeatures?.canvas || !canvasAndFeatures?.features) return event;
     // if the tile has been parsed, attach the feature to the event
     // concat the features to the existing features array
-    event.features = [...event?.features ? event.features : [], ...this._handleClickEvent(event, canvasAndFeatures.features, mVTSource)];
+    event.features = [
+      ...event?.features ? event.features : [],
+      ...this._handleClickEvent(event, canvasAndFeatures.features, mVTSource)];
     return event;
   }
 
