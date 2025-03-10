@@ -62,45 +62,53 @@ class MVTLayer {
    */
   parseVectorTileFeatures(mVTSource, vectorTileLayer, tileContext) {
     this._canvasAndMVTFeatures[tileContext.id] = {canvas: tileContext.canvas, features: []};
+    const context = {
+      mVTSource,
+      mVTLayer: vectorTileLayer,
+      tileContext,
+    };
     for (let i = 0; i < vectorTileLayer.length; i++) {
-      this._parseVectorTileFeature(mVTSource, vectorTileLayer.feature(i), tileContext, i);
+      const feature = vectorTileLayer.feature(i);
+      context.featureId = this._getIDForLayerFeature(feature) ?? i;
+      this._parseVectorTileFeature(feature, context);
     }
     this.drawTile(tileContext);
   }
 
   /**
-   * @param {MVTSource} mVTSource
    * @param {VectorTileFeature} vectorTileFeature
-   * @param {TileContext} tileContext
-   * @param {number} index
+   * @param {Object} context
+   * @param {MVTSource} context.mVTSource
+   * @param {VectorTileLayer} context.mVTLayer
+   * @param {TileContext} context.tileContext
+   * @param {string} context.featureId
    */
-  _parseVectorTileFeature(mVTSource, vectorTileFeature, tileContext, index) {
+  _parseVectorTileFeature(vectorTileFeature, context) {
     // if the filter has been defined and returns false, skip the feature
-    if (this._filter && typeof this._filter === 'function' && !this._filter(vectorTileFeature, tileContext)) return;
+    if (this._filter && typeof this._filter === 'function' && !this._filter(vectorTileFeature, context)) return;
 
-    const featureId = this._getIDForLayerFeature(vectorTileFeature) ?? index;
-    const mVTFeature = this._mVTFeatures[featureId];
+    const mvtFeature = this._mVTFeatures[context.featureId];
 
     // if the feature has already been seen, update the style and add the new geometry.
-    if (mVTFeature) {
-      mVTFeature.style = this.getStyle(vectorTileFeature);
-      mVTFeature.addTileFeature(vectorTileFeature, tileContext);
-      this._canvasAndMVTFeatures[tileContext.id].features.push(mVTFeature);
+    if (mvtFeature) {
+      mvtFeature.style = this.getStyle(vectorTileFeature);
+      mvtFeature.addTileFeature(vectorTileFeature, context.tileContext);
+      this._canvasAndMVTFeatures[context.tileContext.id].features.push(mvtFeature);
       return;
     }
 
     // if the feature has not been seen, create a new MVTFeature
     const newFeature = new MVTFeature({
-      mVTSource,
+      mVTSource: context.mVTSource,
       vectorTileFeature,
-      tileContext,
+      tileContext: context.tileContext,
       style: this.getStyle(vectorTileFeature),
-      selected: mVTSource.isFeatureSelected(featureId),
-      featureId,
+      selected: context.mVTSource.isFeatureSelected(context.featureId),
+      featureId: context.featureId,
       customDraw: this._customDraw,
     });
-    this._mVTFeatures[featureId] = newFeature;
-    this._canvasAndMVTFeatures[tileContext.id].features.push(newFeature);
+    this._mVTFeatures[context.featureId] = newFeature;
+    this._canvasAndMVTFeatures[context.tileContext.id].features.push(newFeature);
   }
 
   /**
@@ -152,7 +160,7 @@ class MVTLayer {
    * Attaches the clicked feature to the event if it exists
    * @param {TileMapMouseEvent} event
    * @param {MVTSource} mVTSource
-   * @return {TileMapMouseEvent}
+   * @return {{event: TileMapMouseEvent, features: MVTFeature[], mVTSource: MVTSource, mVTLayer: MVTLayer}}
    */
   handleClickEvent(event, mVTSource) {
     const canvasAndFeatures = this._canvasAndMVTFeatures[event.tileContext.id];
@@ -160,7 +168,12 @@ class MVTLayer {
     if (!canvasAndFeatures?.canvas || !canvasAndFeatures?.features) return event;
     // if the tile has been parsed, attach the feature to the event
     // concat the features to the existing features array
-    event.features = [...event?.features ? event.features : [], ...this._handleClickEvent(event, canvasAndFeatures.features, mVTSource)];
+    event.features = [
+      ...event?.features ? event.features : [],
+      ...this._handleClickEvent(event, canvasAndFeatures.features, mVTSource),
+    ];
+    event.mVTSource = mVTSource;
+    event.mVTLayer = this;
     return event;
   }
 

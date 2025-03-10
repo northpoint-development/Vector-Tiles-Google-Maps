@@ -1,5 +1,8 @@
 module.exports = {
   root: true,
+  globals: {
+    google: 'readonly',
+  },
   env: {
     'jest': true,
     'browser': true,

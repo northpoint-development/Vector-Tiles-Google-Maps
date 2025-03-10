@@ -1,9 +1,6 @@
 /*
  *  Created by Jes�s Barrio on 04/2021
- */
-
-// eslint-disable-next-line spaced-comment
-/// <reference types="google.maps" />
+*/
 
 import Pbf from 'pbf';
 import {VectorTile} from '@mapbox/vector-tile';
@@ -43,7 +40,12 @@ import {getTileFromString, getTileString} from '../lib/geometry.js';
  *
  * @callback filterFn - A function that returns a style for a feature
  * @param {VectorTileFeature} feature
- * @param {TileContext} context
+ * @param {Object} context
+ * @param {MVTSource} context.mVTSource
+ * @param {MVTLayer} context.mVTLayer
+ * @param {TileContext} context.tileContext
+ * @param {string} context.featureId
+ * @param {number} test
  * @return {boolean}
  */
 

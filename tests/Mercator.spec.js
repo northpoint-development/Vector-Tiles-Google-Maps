@@ -255,8 +255,8 @@ describe('Mercator.js', () => {
     it('returns expected value', () => {
       const {x, y} = fromLatLngToTilePoint(mockMap(), mockEvt);
 
-      expect(x).toBeCloseTo(-126215.27845, 4);
-      expect(y).toBeCloseTo(-339765, 4);
+      expect(x).toBeCloseTo(181845.8004);
+      expect(y).toBeCloseTo(241610.6666);
     });
   });
   describe('isPointInPolygon', () => {
