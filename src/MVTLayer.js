@@ -87,13 +87,13 @@ class MVTLayer {
     // if the filter has been defined and returns false, skip the feature
     if (this._filter && typeof this._filter === 'function' && !this._filter(vectorTileFeature, context)) return;
 
-    const mvtFeature = this._mVTFeatures[context.featureId];
+    const mVTFeature = this._mVTFeatures[context.featureId];
 
     // if the feature has already been seen, update the style and add the new geometry.
-    if (mvtFeature) {
-      mvtFeature.style = this.getStyle(vectorTileFeature);
-      mvtFeature.addTileFeature(vectorTileFeature, context.tileContext);
-      this._canvasAndMVTFeatures[context.tileContext.id].features.push(mvtFeature);
+    if (mVTFeature) {
+      mVTFeature.style = this.getStyle(vectorTileFeature);
+      mVTFeature.addTileFeature(vectorTileFeature, context.tileContext);
+      this._canvasAndMVTFeatures[context.tileContext.id].features.push(mVTFeature);
       return;
     }
 
