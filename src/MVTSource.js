@@ -581,14 +581,14 @@ class MVTSource {
   }
 
   /**
-   * @param {Array<String>} feature
+   * @param {Array<String>} features
    */
-  setSelectedFeatures(feature) {
-    if (feature.length > 1) {
+  setSelectedFeatures(features) {
+    if (features.length > 1) {
       this._multipleSelection = true;
     }
     this.deselectAllFeatures();
-    feature.forEach(({layerName, id}) => {
+    features.forEach(({layerName, id}) => {
       // HACK: this may be called before layers are loaded, but we need to keep track of the selected features for
       // rendering when they are loaded
       this._selectedFeatures[id] = false;
