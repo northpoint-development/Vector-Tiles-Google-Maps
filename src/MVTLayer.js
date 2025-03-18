@@ -168,12 +168,15 @@ class MVTLayer {
     if (!canvasAndFeatures?.canvas || !canvasAndFeatures?.features) return event;
     // if the tile has been parsed, attach the feature to the event
     // concat the features to the existing features array
+    const f = this._handleClickEvent(event, canvasAndFeatures.features, mVTSource);
     event.features = [
       ...event?.features ? event.features : [],
-      ...this._handleClickEvent(event, canvasAndFeatures.features, mVTSource),
     ];
+    // Move mVT layer to this and replace layerName
+    if (f.length > 0) {
+      event.features = event.features.concat({mVTLayer: this, layerFeatures: f});
+    }
     event.mVTSource = mVTSource;
-    event.mVTLayer = this;
     return event;
   }
 
